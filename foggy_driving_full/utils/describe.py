@@ -42,11 +42,10 @@ R (Reward Function):
   R(s,a,s') =
     speed'               (normal step)
     speed' - 50          (collision)
-    speed' + 20          (surviving full episode)
+    speed' + 100          (surviving full episode)
   Encourages fast but safe driving.
 
 γ (Discount Factor):
   gamma = 0.99
-  Long-horizon control appropriate for driving.
 
 """)
