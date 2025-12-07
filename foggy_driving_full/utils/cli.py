@@ -9,7 +9,6 @@ from env.renderer import FoggyDrivingRender
 from training.trainer import FoggyDrivingTrainer
 from .describe import describe
 
-
 def main():
     parser = argparse.ArgumentParser(description="FoggyDriving CLI")
 

@@ -86,10 +86,11 @@ class FoggyDrivingTrainer:
             model = A2C(
                 "MlpPolicy",
                 env,
-                learning_rate=3e-4,
-                n_steps=5,
-                gamma=0.99,
+                learning_rate=7e-4,
+                n_steps=128,
+                gamma=0.995,
                 ent_coef=0.01,
+                gae_lambda=0.95,
                 vf_coef=0.5,
                 max_grad_norm=0.5,
                 tensorboard_log=self.tb_log_dir,
@@ -201,22 +202,76 @@ class FoggyDrivingTrainer:
 
     def plot_training_curve(self, out_path=None):
 
+        SMOOTH_WINDOW = 100
+        MAX_POINTS = 1000
+
         if out_path is None:
-            out_path = os.path.join(self.train_logs, f"training_curve_{self.model_type}.png")
+            out_path = os.path.join(
+                self.train_logs, f"training_curve_{self.model_type}.png"
+            )
+
         timesteps, rewards = self.load_training_logs()
 
 
-        plt.figure(figsize=(6, 4))
-        plt.plot(timesteps, rewards, label="Expected Return")
+        timesteps = np.asarray(timesteps)
+        rewards = np.asarray(rewards)
+
+        if timesteps.size == 0:
+            print("No training logs found, cannot plot training curve.")
+            return
+
+        order = np.argsort(timesteps)
+        timesteps = timesteps[order]
+        rewards = rewards[order]
+
+        window = max(1, min(SMOOTH_WINDOW, rewards.size))
+        cumsum = np.cumsum(np.insert(rewards, 0, 0.0))
+        ma = (cumsum[window:] - cumsum[:-window]) / window
+        ma_padded = np.concatenate([np.full(window - 1, ma[0]), ma])
+
+
+        n = timesteps.size
+        if n > MAX_POINTS:
+            idx = np.linspace(0, n - 1, MAX_POINTS, dtype=int)
+            t_raw = timesteps[idx]
+            r_raw = rewards[idx]
+            r_smooth = ma_padded[idx]
+        else:
+            t_raw = timesteps
+            r_raw = rewards
+            r_smooth = ma_padded
+
+        plt.figure(figsize=(8, 4))
+
+        plt.plot(t_raw, r_raw, alpha=0.2, linewidth=0.8, label="Episode return (raw)")
+
+        plt.plot(
+            t_raw,
+            r_smooth,
+            linewidth=2.0,
+            label=f"Moving avg (window={window})",
+        )
+
+        best_idx = int(np.argmax(rewards))
+        plt.scatter(
+            timesteps[best_idx],
+            rewards[best_idx],
+            color="red",
+            s=40,
+            zorder=5,
+            label=f"Best: {rewards[best_idx]:.1f}",
+        )
+
         plt.xlabel("Timesteps")
         plt.ylabel("Episode return")
-        plt.title("Expected Return vs Timesteps (PPO)")
+        plt.title(f"Training return vs timesteps ({self.model_type})")
         plt.grid(True, alpha=0.3)
-        plt.legend()
+        plt.legend(loc="best")
         plt.tight_layout()
         plt.savefig(out_path, dpi=200)
         plt.close()
         print(f"Training curve : {out_path}")
+
 
     def plot_eval_curve(self, out_path=None):
 

@@ -1,51 +1,100 @@
-
-
 def describe():
     print("""
-FoggyDriving MDP Definition
+FoggyDriving — MDP Specification
 
-S (State Space):
-  Continuous vector in [0,1]^(4+number of lidar signals):
-    - lane_onehot (2 dims)
-    - normalized speed
-    - normalized fog level
-    - normalized lidar distances
-  Full state: s = [lane_1hot, speed_norm, fog_norm, lidar_1...lidar_n]
+TATE SPACE  S
+───────────────────────────────────────────────────────────────────────────────
+Observation is a continuous vector in [0,1]^(4 + L), where L = number of lidar
+beams.
 
-A (Action Space):
-  Discrete actions A = {0,1,2,3,4}:
-    0 = maintain
-    1 = accelerate
-    2 = brake
-    3 = lane left
-    4 = lane right
+State components:
+  • lane_onehot (2 dims):   ego lane encoded as [1,0] or [0,1]
+  • speed_norm:             (ego_speed - min_speed) / (max_speed - min_speed)
+  • fog_norm:               fog_level / max_fog_level
+  • lidar_norm (L dims):    lidar distances normalized by max visible range
 
-p (Transition Dynamics):
-  Stochastic transitions due to:
-    - random fog changes
-    - random obstacle car speeds and spawns
-    - noisy lidar readings
-  Ego dynamics:
-    - lane shifts by at most ±1
-    - speed increases/decreases within [v_min, v_max]
-  Next state s' sampled from p(s'|s,a).
+Raw state variables maintained by the environment:
+  • ego_lane ∈ {0,1}
+  • ego_speed ∈ [min_speed, max_speed]
+  • fog ∈ {0 … max_fog_levels}
+  • cars: list of dynamic objects, each with:
+        lane, dist, speed, desired_speed
+  • step_count
+  • distance travelled
 
-d0 (Initial State Distribution):
-  Randomized environment reset:
-    - random fog level
-    - random number of cars (5–8)
-    - random car distances and speeds
-    - ego lane = 1, ego speed = mid-range
-  Defines distribution d0(s) = P(s0 = s).
 
-R (Reward Function):
-  R(s,a,s') =
-    speed'               (normal step)
-    speed' - 50          (collision)
-    speed' + 100          (surviving full episode)
-  Encourages fast but safe driving.
+ACTION SPACE  A
+───────────────────────────────────────────────────────────────────────────────
+Discrete(5):
 
-γ (Discount Factor):
-  gamma = 0.99
+  0 = maintain speed
+  1 = accelerate (speed += 1, clipped to max_speed)
+  2 = decelerate      (speed -= 1, clipped to min_speed)
+  3 = lane left  (lane = max(0, lane-1))
+  4 = lane right (lane = min(num_lanes-1, lane+1))
+
+
+TRANSITION DYNAMICS  
+───────────────────────────────────────────────────────────────────────────────
+Stochastic transitions due to:
+  • random fog changes: with probability 0.2 each step, fog resets randomly
+  • traffic generation:
+        - cars spawned probabilistically if enough free space exists
+        - cars removed when outside the visible window
+  • IDM acceleration model for car-following dynamics
+  • MOBIL lane-change logic for non-ego cars
+  • noisy lidar readings (Gaussian multiplicative noise)
+  • random initial traffic and speeds
+
+Ego dynamics:
+  • lane updated based on action
+  • ego_speed updated based on action
+  • ego perceived motion = other cars move relative to ego speed
+
+Lidar:
+  • L beams with angles in [-π/4, π/4]
+  • range limited by fog: max_range_by_fog[fog_level]
+  • noisy beam intersection with car bounding boxes
+
+
+INITIAL STATE DISTRIBUTION  d₀
+───────────────────────────────────────────────────────────────────────────────
+On reset:
+  • ego_lane sampled uniformly from {0,1}
+  • ego_speed initialized to midpoint of [min_speed, max_speed]
+  • fog sampled uniformly from {0 … max_fog_levels}
+  • cars:
+        - 5 to 9 randomly positioned cars
+        - speeds sampled in [min_speed, max_speed-1]
+        - desired speeds sampled up to max_speed
+  • 3 additional slow-moving cars spawned in ego lane
+  • distance = 0, step_count = 0
+
+
+REWARD FUNCTION  R
+───────────────────────────────────────────────────────────────────────────────
+reward = ego_speed'
+
+Penalty for collision:
+      -50 added on top of the normal step reward
+
+Bonus for reaching max episode length without crashing:
+      +100 at the end of a non-terminal truncation
+
+Interpretation:
+  • incentivizes high speed
+  • heavily penalizes collisions
+  • encourages surviving long episodes
+
+
+EPISODE TERMINATION
+───────────────────────────────────────────────────────────────────────────────
+• terminated = True   if collision with another car
+• truncated = True    if step_count reaches max_steps
+
+
+DISCOUNT FACTOR
+───────────────────────────────────────────────────────────────────────────────
+γ = 0.99
 
 """)
