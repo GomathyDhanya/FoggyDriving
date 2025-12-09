@@ -49,7 +49,7 @@ def main():
     model_path = args.path
 
     if mode == "describe":
-        #describe()
+        describe()
         return
 
     if mode == "train":
