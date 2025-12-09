@@ -1,3 +1,31 @@
+<div>
+  <h3>FoggyDriving CLI</h3>
+
+  <pre><code>python main.py --mode (describe | train | view) [options]</code></pre>
+
+  <h4>Examples</h4>
+
+  <p><strong>Describe the environment</strong></p>
+  <pre><code>python main.py --mode describe</code></pre>
+  <p>High-level description of the FoggyDriving environment.</p>
+
+  <p><strong>Train a model</strong></p>
+  <pre><code>python main.py --mode train --model PPO --timesteps 1000000 --path FoggyDrivingModel.zip</code></pre>
+  <ul>
+    <li><code>--model</code> can be: <code>PPO</code>, <code>A2C</code>, <code>DQN</code></li>
+    <li><code>--timesteps</code> is an integer</li>
+    <li><code>--path</code> is the location to save the trained model</li>
+  </ul>
+
+  <p><strong>View a trained model</strong></p>
+  <pre><code>python main.py --mode view --model PPO --path FoggyDrivingModel.zip</code></pre>
+  <ul>
+    <li><code>--model</code> must match the algorithm used to train the model</li>
+    <li><code>--path</code> points to the trained model file</li>
+  </ul>
+</div>
+
+
 <div align="center">
   <h1>FoggyDriving — MDP Specification</h1>
 </div>
